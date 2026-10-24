@@ -1728,6 +1728,9 @@ end
 
 function addon:RefreshCreationPanel()
     if not creationPanel then return end
+    if not creationPanel:IsShown() then creationPanel.pgsDirty = true; return end
+    creationPanel.pgsDirty = nil
+    addon.perf.viewRefreshes = addon.perf.viewRefreshes + 1
 
     if creationPanel.partyLabel then
         if IsInGroup() then
@@ -2770,7 +2773,6 @@ function addon:CreateBlacklistPanel()
 
     blPanel:SetScript("OnHide", function()
         GameTooltip:Hide()
-        collectgarbage("step", 200)
     end)
 
     SetActiveTab("blacklist")
@@ -3803,6 +3805,9 @@ function addon:CreateInterfaceOptions()
     blSubPanel:SetScript("OnMouseWheel", function(self, delta) ScrollSubBlacklist(delta) end)
 
     blSubPanel.refresh = function()
+        if not blSubPanel:IsShown() then blSubPanel.pgsDirty = true; return end
+        blSubPanel.pgsDirty = nil
+        addon.perf.viewRefreshes = addon.perf.viewRefreshes + 1
         if blSubPanel.rawEntries then
             RecycleBLEntries(blSubPanel.rawEntries)
         else
@@ -3846,16 +3851,15 @@ function addon:CreateInterfaceOptions()
             end
         end
 
+        local seen = {}
+        for _, entry in ipairs(entries) do seen[entry.key] = true end
         local guildCount = 0
         if addon.guildBlacklist then
             for memberName, memberBL in pairs(addon.guildBlacklist) do
                 for key, info in pairs(memberBL) do
                     if not (addon.db.blacklist and addon.db.blacklist[key]) then
-                        local exists = false
-                        for _, e in ipairs(entries) do
-                            if e.key == key then exists = true; break end
-                        end
-                        if not exists then
+                        if not seen[key] then
+                            seen[key] = true
                             local e = AllocBLEntry()
                             e.key = key
                             e.name = info.name or key
@@ -3893,6 +3897,7 @@ function addon:CreateInterfaceOptions()
         UpdateSubBlacklistRows()
     end
 
+    blSubPanel:HookScript("OnShow", function() blSubPanel.refresh() end)
     InterfaceOptions_AddCategory(blSubPanel)
 
     --------------------------------------------------------------------
@@ -4868,5 +4873,3 @@ uiInitFrame:SetScript("OnEvent", function(self, event, arg1)
         end
     end
 end)
-
-

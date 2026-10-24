@@ -4,10 +4,12 @@
 ## Notes: Filter & Sort mythic+ groups (Shift-click multi-select), Quick Group Creator, Party Keystone Sync & Account/Party Blacklist Protection.
 ## Notes-ruRU: Мульти-выбор подземелий (Shift), фильтры, быстрое создание группы, синхронизация ключей пати и умный Чёрный Список (аккаунт + пати) с защитой от инвайта ливеров.
 ## Author: Antigravity
-## Version: 1.3.0
+## Version: 1.4.0
 ## SavedVariables: PremadeGroupSortDB
 ## LoadOnDemand: 0
 
 Localization.lua
 Core.lua
+Sync.lua
+CharacterKeys.lua
 UI.lua

@@ -248,6 +248,18 @@ L["OPT_MINIMAP_ICON"] = "Show Minimap Button"
 L["OPT_MINIMAP_ICON_DESC"] = "Displays a convenient circular button near the minimap for 1-click access."
 L["BL_CHAT_HINT"] = "Tip: Right-click player name in chat or unit frame -> 'Add to BL (PGS)'"
 
+-- Account keystone log (all locales fall back to English).
+L["KEYS_HEADER"] = "Your characters' last known keystones:"
+L["KEYS_NONE"] = "No keystone"
+L["KEYS_UNCONFIRMED"] = "Inventory not confirmed"
+L["KEYS_UNKNOWN_DUNGEON"] = "Dungeon %d"
+L["KEYS_CURRENT"] = "Current character"
+L["KEYS_AGE_DAYS"] = "Checked %d days ago"
+L["KEYS_AGE_HOURS"] = "Checked %d hours ago"
+L["KEYS_AGE_MINUTES"] = "Checked %d minutes ago"
+L["KEYS_EMPTY"] = "No characters recorded yet."
+L["KEYS_VISIT_HINT"] = "Log in to each character with PGS enabled to update its record. Offline records may be outdated."
+
 -- Russian Localization
 if GetLocale() == "ruRU" then
     L["ADDON_TITLE"] = "Сортировка Премейд Групп"

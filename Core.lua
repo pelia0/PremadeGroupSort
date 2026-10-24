@@ -333,31 +333,12 @@ local function RegisterAddonPrefix()
     end
 end
 
-function addon:BroadcastKeystone()
-    if not IsInGroup() then return end
-    local dId, level = addon:GetPlayerKeystone()
-    local channel = IsInRaid() and "RAID" or "PARTY"
-    local msg
-    if dId and level then
-        msg = "KEY:" .. dId .. ":" .. tostring(level)
-    else
-        msg = "KEY:NONE:0"
-    end
-    if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-        C_ChatInfo.SendAddonMessage("PGS_KEY", msg, channel)
-    else
-        pcall(SendAddonMessage, "PGS_KEY", msg, channel)
-    end
+function addon:BroadcastKeystone(force)
+    self:BroadcastCachedKeystone(force)
 end
 
 function addon:RequestPartyKeystones()
-    if not IsInGroup() then return end
-    local channel = IsInRaid() and "RAID" or "PARTY"
-    if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-        C_ChatInfo.SendAddonMessage("PGS_KEY", "REQ", channel)
-    else
-        pcall(SendAddonMessage, "PGS_KEY", "REQ", channel)
-    end
+    self:RequestCachedKeystones()
 end
 
 ------------------------------------------------------------------------
@@ -409,19 +390,11 @@ function addon:AddBlacklist(name, reason, addedBy)
     if IsInGroup() then
         local channel = IsInRaid() and "RAID" or "PARTY"
         local msg = "BL_ADD:" .. shortName .. ":" .. cleanReason
-        if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-            C_ChatInfo.SendAddonMessage("PGS_BL", msg, channel)
-        else
-            pcall(SendAddonMessage, "PGS_BL", msg, channel)
-        end
+        addon:QueueListDelta("PGS_BL", msg, channel)
     end
     if IsInGuild() and addon.db and addon.db.syncGuildBlacklist then
         local msg = "BL_ADD:" .. shortName .. ":" .. cleanReason
-        if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-            C_ChatInfo.SendAddonMessage("PGS_BL", msg, "GUILD")
-        else
-            pcall(SendAddonMessage, "PGS_BL", msg, "GUILD")
-        end
+        addon:QueueListDelta("PGS_BL", msg, "GUILD")
     end
 
     if addon.RefreshBlacklistPanel then
@@ -444,19 +417,11 @@ function addon:RemoveBlacklist(name)
         if IsInGroup() then
             local channel = IsInRaid() and "RAID" or "PARTY"
             local msg = "BL_DEL:" .. shortName
-            if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-                C_ChatInfo.SendAddonMessage("PGS_BL", msg, channel)
-            else
-                pcall(SendAddonMessage, "PGS_BL", msg, channel)
-            end
+            addon:QueueListDelta("PGS_BL", msg, channel)
         end
         if IsInGuild() and addon.db and addon.db.syncGuildBlacklist then
             local msg = "BL_DEL:" .. shortName
-            if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-                C_ChatInfo.SendAddonMessage("PGS_BL", msg, "GUILD")
-            else
-                pcall(SendAddonMessage, "PGS_BL", msg, "GUILD")
-            end
+            addon:QueueListDelta("PGS_BL", msg, "GUILD")
         end
 
         if addon.RefreshBlacklistPanel then
@@ -503,19 +468,11 @@ function addon:AddWhitelist(name, note)
     if IsInGroup() then
         local channel = IsInRaid() and "RAID" or "PARTY"
         local msg = "WL_ADD:" .. shortName .. ":" .. cleanNote
-        if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-            C_ChatInfo.SendAddonMessage("PGS_WL", msg, channel)
-        else
-            pcall(SendAddonMessage, "PGS_WL", msg, channel)
-        end
+        addon:QueueListDelta("PGS_WL", msg, channel)
     end
     if IsInGuild() and addon.db and addon.db.syncGuildWhitelist then
         local msg = "WL_ADD:" .. shortName .. ":" .. cleanNote
-        if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-            C_ChatInfo.SendAddonMessage("PGS_WL", msg, "GUILD")
-        else
-            pcall(SendAddonMessage, "PGS_WL", msg, "GUILD")
-        end
+        addon:QueueListDelta("PGS_WL", msg, "GUILD")
     end
 
     print(string.format("|cff00ff00[PGS]|r " .. (L["WL_ADDED_NOTIFY"] or "Added %s to Whitelist."), "|cffffd100" .. shortName .. "|r"))
@@ -534,19 +491,11 @@ function addon:RemoveWhitelist(name)
         if IsInGroup() then
             local channel = IsInRaid() and "RAID" or "PARTY"
             local msg = "WL_DEL:" .. shortName
-            if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-                C_ChatInfo.SendAddonMessage("PGS_WL", msg, channel)
-            else
-                pcall(SendAddonMessage, "PGS_WL", msg, channel)
-            end
+            addon:QueueListDelta("PGS_WL", msg, channel)
         end
         if IsInGuild() and addon.db and addon.db.syncGuildWhitelist then
             local msg = "WL_DEL:" .. shortName
-            if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-                C_ChatInfo.SendAddonMessage("PGS_WL", msg, "GUILD")
-            else
-                pcall(SendAddonMessage, "PGS_WL", msg, "GUILD")
-            end
+            addon:QueueListDelta("PGS_WL", msg, "GUILD")
         end
 
         if addon.RefreshWhitelistPanel then
@@ -746,7 +695,7 @@ end
 
 function addon:ResetDefaults()
     for k, v in pairs(defaultDB) do
-        if k ~= "blacklist" and k ~= "whitelist" then
+        if k ~= "blacklist" and k ~= "whitelist" and k ~= "characterKeys" then
             addon.db[k] = v
         end
     end
@@ -763,157 +712,19 @@ function addon:ResetDefaults()
 end
 
 function addon:BroadcastBlacklist(targetChannel)
-    local channels = {}
-    if targetChannel then
-        table.insert(channels, targetChannel)
-    else
-        if IsInGroup() then
-            table.insert(channels, IsInRaid() and "RAID" or "PARTY")
-        end
-        if IsInGuild() and addon.db and addon.db.syncGuildBlacklist then
-            table.insert(channels, "GUILD")
-        end
-    end
-
-    if #channels == 0 then return end
-
-    local entries = {}
-    if addon.db and addon.db.blacklist then
-        for key, info in pairs(addon.db.blacklist) do
-            table.insert(entries, (info.name or key) .. "=" .. (info.reason or ""))
-        end
-    end
-
-    local function SendToAll(msg)
-        for _, ch in ipairs(channels) do
-            if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-                C_ChatInfo.SendAddonMessage("PGS_BL", msg, ch)
-            else
-                pcall(SendAddonMessage, "PGS_BL", msg, ch)
-            end
-        end
-    end
-
-    if #entries == 0 then
-        SendToAll("BL_DATA:NONE")
-        return
-    end
-
-    local currentChunk = {}
-    local currentLen = 0
-    for _, item in ipairs(entries) do
-        local itemLen = string.len(item) + 1
-        if currentLen + itemLen > 180 and #currentChunk > 0 then
-            SendToAll("BL_DATA:" .. table.concat(currentChunk, ";"))
-            currentChunk = {}
-            currentLen = 0
-        end
-        table.insert(currentChunk, item)
-        currentLen = currentLen + itemLen
-    end
-
-    if #currentChunk > 0 then
-        SendToAll("BL_DATA:" .. table.concat(currentChunk, ";"))
-    end
+    self:ScheduleListSync("PGS_BL", targetChannel)
 end
 
 function addon:RequestPartyBlacklist(targetChannel)
-    local channels = {}
-    if targetChannel then
-        table.insert(channels, targetChannel)
-    else
-        if IsInGroup() then
-            table.insert(channels, IsInRaid() and "RAID" or "PARTY")
-        end
-        if IsInGuild() and addon.db and addon.db.syncGuildBlacklist then
-            table.insert(channels, "GUILD")
-        end
-    end
-
-    for _, ch in ipairs(channels) do
-        if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-            C_ChatInfo.SendAddonMessage("PGS_BL", "REQ_BL", ch)
-        else
-            pcall(SendAddonMessage, "PGS_BL", "REQ_BL", ch)
-        end
-    end
+    self:RequestListSync("PGS_BL", targetChannel)
 end
 
 function addon:BroadcastWhitelist(targetChannel)
-    local channels = {}
-    if targetChannel then
-        table.insert(channels, targetChannel)
-    else
-        if IsInGroup() then
-            table.insert(channels, IsInRaid() and "RAID" or "PARTY")
-        end
-        if IsInGuild() and addon.db and addon.db.syncGuildWhitelist then
-            table.insert(channels, "GUILD")
-        end
-    end
-
-    if #channels == 0 then return end
-
-    local entries = {}
-    if addon.db and addon.db.whitelist then
-        for key, info in pairs(addon.db.whitelist) do
-            table.insert(entries, (info.name or key) .. "=" .. (info.note or ""))
-        end
-    end
-
-    local function SendToAll(msg)
-        for _, ch in ipairs(channels) do
-            if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-                C_ChatInfo.SendAddonMessage("PGS_WL", msg, ch)
-            else
-                pcall(SendAddonMessage, "PGS_WL", msg, ch)
-            end
-        end
-    end
-
-    if #entries == 0 then
-        SendToAll("WL_DATA:NONE")
-        return
-    end
-
-    local currentChunk = {}
-    local currentLen = 0
-    for _, item in ipairs(entries) do
-        local itemLen = string.len(item) + 1
-        if currentLen + itemLen > 180 and #currentChunk > 0 then
-            SendToAll("WL_DATA:" .. table.concat(currentChunk, ";"))
-            currentChunk = {}
-            currentLen = 0
-        end
-        table.insert(currentChunk, item)
-        currentLen = currentLen + itemLen
-    end
-
-    if #currentChunk > 0 then
-        SendToAll("WL_DATA:" .. table.concat(currentChunk, ";"))
-    end
+    self:ScheduleListSync("PGS_WL", targetChannel)
 end
 
 function addon:RequestPartyWhitelist(targetChannel)
-    local channels = {}
-    if targetChannel then
-        table.insert(channels, targetChannel)
-    else
-        if IsInGroup() then
-            table.insert(channels, IsInRaid() and "RAID" or "PARTY")
-        end
-        if IsInGuild() and addon.db and addon.db.syncGuildWhitelist then
-            table.insert(channels, "GUILD")
-        end
-    end
-
-    for _, ch in ipairs(channels) do
-        if C_ChatInfo and C_ChatInfo.SendAddonMessage then
-            C_ChatInfo.SendAddonMessage("PGS_WL", "REQ_WL", ch)
-        else
-            pcall(SendAddonMessage, "PGS_WL", "REQ_WL", ch)
-        end
-    end
+    self:RequestListSync("PGS_WL", targetChannel)
 end
 
 local eventFrame = CreateFrame("Frame")
@@ -927,6 +738,10 @@ eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 eventFrame:RegisterEvent("IGNORELIST_UPDATE")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:RegisterEvent("CHALLENGE_MODE_START")
+eventFrame:RegisterEvent("CHALLENGE_MODE_COMPLETED")
+eventFrame:RegisterEvent("CHALLENGE_MODE_RESET")
+eventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
 
@@ -958,6 +773,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
             PremadeGroupSortDB.soundVolumeBoost = 100
         end
         addon.db = PremadeGroupSortDB
+        addon:InitializeCharacterKeys()
         if addon.db.selectedDungeons == nil then
             addon.db.selectedDungeons = {}
         end
@@ -992,16 +808,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
         else
             addon:PlayAnimeSound("login")
         end
-        if IsInGroup() then
-            addon:BroadcastKeystone()
-            addon:RequestPartyKeystones()
-            addon:BroadcastBlacklist()
-            addon:RequestPartyBlacklist()
-        end
-        if IsInGuild() and addon.db and addon.db.syncGuildBlacklist then
-            addon:BroadcastBlacklist("GUILD")
-            addon:RequestPartyBlacklist("GUILD")
-        end
+        addon:ScheduleKeystoneUpdate(0.5)
+        if addon:GroupRosterChanged() and IsInGroup() then addon:SyncGroup() end
+        addon:SyncGuild()
     elseif event == "PLAYER_FLAGS_CHANGED" then
         local unit = arg1
         if not unit or unit == "player" then
@@ -1018,14 +827,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
         end
         addon.hadActiveEntry = hasActive
     elseif event == "PLAYER_GUILD_UPDATE" then
-        if IsInGuild() and addon.db and addon.db.syncGuildBlacklist then
-            addon:BroadcastBlacklist("GUILD")
-            addon:RequestPartyBlacklist("GUILD")
-        end
-        if IsInGuild() and addon.db and addon.db.syncGuildWhitelist then
-            addon:BroadcastWhitelist("GUILD")
-            addon:RequestPartyWhitelist("GUILD")
-        end
+        addon:SyncGuild()
     elseif event == "IGNORELIST_UPDATE" then
         addon:SyncNativeIgnoreList()
         if addon.RefreshBlacklistPanel then
@@ -1037,17 +839,28 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
     elseif event == "PLAYER_ENTERING_WORLD" then
         addon.isWorldLoaded = true
         addon:ClearMetaCache()
+        addon:ScheduleKeystoneUpdate(0.5)
+        addon:ResumeDeferredSync()
     elseif event == "PLAYER_REGEN_ENABLED" then
-        collectgarbage("step", 200)
+        -- Let Lua manage its collector; combat end must not force a global GC step.
+        addon:ResumeDeferredSync()
+    elseif event == "CHALLENGE_MODE_START" or event == "CHALLENGE_MODE_COMPLETED" or event == "CHALLENGE_MODE_RESET" then
+        addon:ScheduleKeystoneUpdate(0.5)
+        addon:ResumeDeferredSync()
+    elseif event == "GET_ITEM_INFO_RECEIVED" then
+        if addon:GetKeystoneSnapshot().status == "unknown" then addon:ScheduleKeystoneUpdate() end
     elseif event == "CHAT_MSG_ADDON" then
         local prefix, message, channel, sender = arg1, arg2, arg3, arg4
         if prefix and message and sender then
+            if prefix == "PGS_KEY" or prefix == "PGS_BL" or prefix == "PGS_WL" then
+                addon.perf.received = addon.perf.received + 1
+            end
             local senderShort = string.match(sender, "^([^-]+)") or sender
             local myName = UnitName("player")
             if senderShort ~= myName then
                 if prefix == "PGS_KEY" then
                     if message == "REQ" then
-                        addon:BroadcastKeystone()
+                        addon:BroadcastKeystone(true)
                     elseif string.sub(message, 1, 4) == "KEY:" then
                         local dId, levelStr = string.match(message, "^KEY:(%w+):(%d+)$")
                         if dId and levelStr then
@@ -1061,9 +874,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                                     name = senderShort,
                                 }
                             end
-                            if addon.RefreshCreationPanel then
-                                addon:RefreshCreationPanel()
-                            end
+                            addon:ScheduleRemoteViews()
                         end
                     end
                 elseif prefix == "PGS_BL" then
@@ -1078,7 +889,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                         if not targetStore[senderShort] then
                             targetStore[senderShort] = {}
                         end
-                        if dataStr ~= "NONE" then
+                        if dataStr == "NONE" then
+                            wipe(targetStore[senderShort])
+                        else
                             for item in string.gmatch(dataStr, "[^;]+") do
                                 local name, reason = string.match(item, "^([^=]+)=(.*)$")
                                 if name and name ~= "" then
@@ -1106,12 +919,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                                 end
                             end
                         end
-                        if addon.RefreshBlacklistPanel then
-                            addon:RefreshBlacklistPanel()
-                        end
-                        if addon.optionsBLPanel and addon.optionsBLPanel.refresh then
-                            addon.optionsBLPanel.refresh()
-                        end
+                        addon:ScheduleRemoteViews()
                     elseif string.sub(message, 1, 7) == "BL_ADD:" then
                         local name, reason = string.match(message, "^BL_ADD:([^:]+):?(.*)$")
                         if name and name ~= "" then
@@ -1139,24 +947,14 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                                     }
                                 end
                             end
-                            if addon.RefreshBlacklistPanel then
-                                addon:RefreshBlacklistPanel()
-                            end
-                            if addon.optionsBLPanel and addon.optionsBLPanel.refresh then
-                                addon.optionsBLPanel.refresh()
-                            end
+                            addon:ScheduleRemoteViews()
                         end
                     elseif string.sub(message, 1, 7) == "BL_DEL:" then
                         local name = string.match(message, "^BL_DEL:(.+)$")
                         if name and targetStore[senderShort] then
                             local k = safeLower(name)
                             targetStore[senderShort][k] = nil
-                            if addon.RefreshBlacklistPanel then
-                                addon:RefreshBlacklistPanel()
-                            end
-                            if addon.optionsBLPanel and addon.optionsBLPanel.refresh then
-                                addon.optionsBLPanel.refresh()
-                            end
+                            addon:ScheduleRemoteViews()
                         end
                     end
                 elseif prefix == "PGS_WL" then
@@ -1171,7 +969,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                         if not targetStore[senderShort] then
                             targetStore[senderShort] = {}
                         end
-                        if dataStr ~= "NONE" then
+                        if dataStr == "NONE" then
+                            wipe(targetStore[senderShort])
+                        else
                             for item in string.gmatch(dataStr, "[^;]+") do
                                 local name, note = string.match(item, "^([^=]+)=(.*)$")
                                 if name and name ~= "" then
@@ -1199,9 +999,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                                 end
                             end
                         end
-                        if addon.RefreshWhitelistPanel then
-                            addon:RefreshWhitelistPanel()
-                        end
+                        addon:ScheduleRemoteViews()
                     elseif string.sub(message, 1, 7) == "WL_ADD:" then
                         local name, note = string.match(message, "^WL_ADD:([^:]+):?(.*)$")
                         if name and name ~= "" then
@@ -1229,24 +1027,21 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                                     }
                                 end
                             end
-                            if addon.RefreshWhitelistPanel then
-                                addon:RefreshWhitelistPanel()
-                            end
+                            addon:ScheduleRemoteViews()
                         end
                     elseif string.sub(message, 1, 7) == "WL_DEL:" then
                         local name = string.match(message, "^WL_DEL:(.+)$")
                         if name and targetStore[senderShort] then
                             local k = safeLower(name)
                             targetStore[senderShort][k] = nil
-                            if addon.RefreshWhitelistPanel then
-                                addon:RefreshWhitelistPanel()
-                            end
+                            addon:ScheduleRemoteViews()
                         end
                     end
                 end
             end
         end
     elseif event == "GROUP_ROSTER_UPDATE" then
+        if not addon:GroupRosterChanged() then return end
         local inGroup = IsInGroup() and true or false
         if inGroup and not addon.wasInGroup and UnitIsGroupLeader("player") then
             addon:TriggerGroupStartSound()
@@ -1283,12 +1078,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
                     addon.partyWhitelist[name] = nil
                 end
             end
-            addon:BroadcastKeystone()
-            addon:RequestPartyKeystones()
-            addon:BroadcastBlacklist()
-            addon:RequestPartyBlacklist()
-            addon:BroadcastWhitelist()
-            addon:RequestPartyWhitelist()
+            addon:SyncGroup()
         end
         if addon.RefreshCreationPanel then
             addon:RefreshCreationPanel()
@@ -1297,12 +1087,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
             addon:RefreshBlacklistPanel()
         end
     elseif event == "BAG_UPDATE_DELAYED" then
-        if IsInGroup() then
-            addon:BroadcastKeystone()
-        end
-        if addon.RefreshCreationPanel then
-            addon:RefreshCreationPanel()
-        end
+        addon:ScheduleKeystoneUpdate()
+        addon:ResumeDeferredSync()
     end
 end)
 
@@ -1312,7 +1098,11 @@ SLASH_PREMADEGROUPSORT2 = "/premadegroupsort"
 SlashCmdList["PREMADEGROUPSORT"] = function(msg)
     local cmd, arg1, arg2 = string.match(msg or "", "^%s*(%S*)%s*(%S*)%s*(.-)%s*$")
     cmd = safeLower(cmd or "")
-    if cmd == "bl" or cmd == "blacklist" or cmd == "чс" then
+    if cmd == "keys" then
+        addon:ShowCharacterKeys()
+    elseif cmd == "perf" then
+        addon:PrintPerformance()
+    elseif cmd == "bl" or cmd == "blacklist" or cmd == "чс" then
         local subCmd = safeLower(arg1 or "")
         if subCmd == "add" or subCmd == "+" then
             local name, reason = string.match(arg2 or "", "^%s*(%S+)%s*(.-)%s*$")
@@ -2242,96 +2032,12 @@ addon.ChallengeMapToDungeon = {
     [247] = "SEAT",
 }
 
-local scanTooltip = CreateFrame("GameTooltip", "PremadeGroupSort_ScanTooltip", nil, "GameTooltipTemplate")
-scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
-
 function addon:GetPlayerKeystone()
-    -- 1. Scan player bags (0 to 4) for actual Mythic Keystone item
-    for bag = 0, 4 do
-        local numSlots = GetContainerNumSlots(bag)
-        for slot = 1, numSlots do
-            local link = GetContainerItemLink(bag, slot)
-            if link then
-                -- Check for standard Legion keystone link: |Hkeystone:mapID:level:...|h
-                local mapIDStr, levelStr = string.match(link, "keystone:(%d+):(%d+)")
-                if mapIDStr and levelStr then
-                    local mapID = tonumber(mapIDStr)
-                    local level = tonumber(levelStr)
-                    if mapID and level then
-                        local dId = addon.ChallengeMapToDungeon[mapID]
-                        if not dId and C_ChallengeMode and C_ChallengeMode.GetMapUIInfo then
-                            local mName = C_ChallengeMode.GetMapUIInfo(mapID)
-                            if mName then
-                                local d = addon.DungeonMap[mName] or addon.DungeonMap[safeLower(mName)]
-                                dId = d and d.id
-                            end
-                        end
-                        if dId then
-                            local dInfo = addon.DungeonMap[dId]
-                            return dId, level, dInfo and dInfo.nameEn or dId
-                        end
-                    end
-                end
-
-                -- Also check if item is a keystone by itemID or name
-                local itemID = GetContainerItemID(bag, slot)
-                local isKeystoneItem = (itemID == 138019 or itemID == 158923 or itemID == 151086)
-                if not isKeystoneItem then
-                    local lowerLink = safeLower(link)
-                    if string.find(lowerLink, "эпохальн") and string.find(lowerLink, "ключ") then
-                        isKeystoneItem = true
-                    elseif string.find(lowerLink, "mythic keystone") or string.find(lowerLink, "keystone") then
-                        isKeystoneItem = true
-                    end
-                end
-
-                if isKeystoneItem then
-                    scanTooltip:ClearLines()
-                    scanTooltip:SetBagItem(bag, slot)
-                    local level = nil
-                    local foundDungeonId = nil
-
-                    for i = 1, scanTooltip:NumLines() do
-                        local line = _G["PremadeGroupSort_ScanTooltipTextLeft" .. i]
-                        local text = line and line:GetText()
-                        if text and text ~= "" then
-                            if not level then
-                                local lvl = string.match(text, "%((%d+)%)") or
-                                            string.match(text, "%+(%d+)") or
-                                            string.match(text, "[уУ]ровень[^%d]*(%d+)") or
-                                            string.match(text, "[lL]evel[^%d]*(%d+)")
-                                if lvl then
-                                    level = tonumber(lvl)
-                                end
-                            end
-
-                            if not foundDungeonId then
-                                for _, d in ipairs(addon.DungeonList) do
-                                    if d.id ~= "ALL" then
-                                        if string.find(text, d.nameRu, 1, true) or string.find(text, d.nameEn, 1, true) then
-                                            foundDungeonId = d.id
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-
-                    if foundDungeonId and level then
-                        local dInfo = addon.DungeonMap[foundDungeonId]
-                        return foundDungeonId, level, dInfo and dInfo.nameEn or foundDungeonId
-                    elseif foundDungeonId then
-                        local dInfo = addon.DungeonMap[foundDungeonId]
-                        return foundDungeonId, 2, dInfo and dInfo.nameEn or foundDungeonId
-                    end
-                end
-            end
-        end
+    local snapshot = self:GetKeystoneSnapshot()
+    if snapshot.status == "key" then
+        return snapshot.dId, snapshot.level, snapshot.dungeonName, snapshot
     end
-
-    -- If no keystone found in bags, do not return dummy server data
-    return nil, nil, nil
+    return nil, nil, nil, snapshot
 end
 
 ------------------------------------------------------------------------
