@@ -1,0 +1,13 @@
+## Interface: 70300
+## Title: |cff00ccffPremade Group Sort|r [Legion 7.3.5]
+## Title-ruRU: |cff00ccffСортировка Премейд Групп|r [PremadeGroupSort]
+## Notes: Filter & Sort mythic+ groups (Shift-click multi-select), Quick Group Creator, Party Keystone Sync & Account/Party Blacklist Protection.
+## Notes-ruRU: Мульти-выбор подземелий (Shift), фильтры, быстрое создание группы, синхронизация ключей пати и умный Чёрный Список (аккаунт + пати) с защитой от инвайта ливеров.
+## Author: Antigravity
+## Version: 1.3.0
+## SavedVariables: PremadeGroupSortDB
+## LoadOnDemand: 0
+
+Localization.lua
+Core.lua
+UI.lua
