@@ -213,5 +213,4 @@ function addon:ShowCharacterKeys()
     print("|cff999999" .. L["KEYS_VISIT_HINT"] .. "|r")
 end
 
-SLASH_PGSKEYS1 = "/keys"
-SlashCmdList["PGSKEYS"] = function() addon:ShowCharacterKeys() end
+addon.characterKeysLoaded = true

@@ -101,12 +101,13 @@ end
 
 
 class Party:
-    def __init__(self, count=1):
+    def __init__(self, count=1, missing_modules=()):
         self.now = 100.0
         self.order = itertools.count()
         self.tasks = []
         self.wire = deque()
         self.sent = []
+        self.missing_modules = set(missing_modules)
         self.clients = [Client(self, i) for i in range(count)]
 
     def deliver(self):
@@ -155,7 +156,7 @@ class Client:
         self.frames = []
         for line in (ROOT / 'PremadeGroupSort.toc').read_text(encoding='utf-8-sig').splitlines():
             name = line.strip()
-            if not name.endswith('.lua'):
+            if not name.endswith('.lua') or name in party.missing_modules:
                 continue
             before = len(self.g._frames)
             self.lua.execute((ROOT / name).read_text(encoding='utf-8-sig'), 'PremadeGroupSort', self.addon)
@@ -543,6 +544,42 @@ class AddonTests(unittest.TestCase):
         c.run("C_ChallengeMode.GetMapInfo=nil; C_ChallengeMode.GetMapUIInfo=function() return 'Halls of Valor' end")
         c.require('RefreshCharacterKeystone')()
         self.assertEqual(c.addon.GetPlayerKeystone(c.addon)[:2],('HOV',17))
+
+    def test_cached_client_file_list_keeps_both_commands_safe(self):
+        c=Party(missing_modules=('Sync.lua','CharacterKeys.lua')).clients[0]
+        self.assertEqual(c.g.SLASH_PGSKEYS1,'/keys')
+        for command in (lambda: c.g.SlashCmdList.PGSKEYS(''),
+                        lambda: c.g.SlashCmdList.PREMADEGROUPSORT('keys')):
+            c.g.OUTPUT=c.lua.table(); command()
+            self.assertIn('restart','\n'.join(c.g.OUTPUT.values()).lower())
+
+    def test_either_missing_module_blocks_runtime_without_event_errors(self):
+        for missing in ('Sync.lua','CharacterKeys.lua'):
+            with self.subTest(missing=missing):
+                c=Party(missing_modules=(missing,)).clients[0]
+                initial=len(c.g.OUTPUT)
+                for _ in range(10):
+                    for event in ('PLAYER_LOGIN','PLAYER_ENTERING_WORLD','BAG_UPDATE_DELAYED',
+                                  'GROUP_ROSTER_UPDATE','PLAYER_REGEN_ENABLED'):
+                        c.fire(event)
+                self.assertEqual(len(c.g.OUTPUT),initial,'no automatic error/chat spam')
+                self.assertEqual(c.party.tasks,[])
+
+    def test_ui_bootstrap_waits_for_complete_runtime(self):
+        c=Party(missing_modules=('Sync.lua','CharacterKeys.lua')).clients[0]
+        # Exercise the real UI initialization callback, normally outside this harness's event set.
+        for frame in c.g._frames.values():
+            if frame.events['PLAYER_LOGIN'] and frame.OnEvent:
+                frame.OnEvent(frame,'PLAYER_LOGIN')
+        self.assertIsNone(c.addon.uiInitialized)
+        self.assertIsNone(c.addon.optionsInitialized)
+
+    def test_complete_runtime_registers_commands_and_accepts_enter(self):
+        c=Party().clients[0]; c.key()
+        c.g.SlashCmdList.PGSKEYS('')
+        c.g.SlashCmdList.PREMADEGROUPSORT('keys')
+        self.assertIn('+12','\n'.join(c.g.OUTPUT.values()))
+        self.assertNotIn('restart','\n'.join(c.g.OUTPUT.values()).lower())
 
 
 if __name__ == '__main__':

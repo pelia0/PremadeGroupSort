@@ -4705,6 +4705,7 @@ end
 -- Initialize UI on Frame Show
 ------------------------------------------------------------------------
 local function TryInitUI()
+    if not addon:IsRuntimeReady() then return end
     if addon.uiInitialized then return end
     if LFGListFrame and LFGListFrame.SearchPanel then
         addon.uiInitialized = true
@@ -4856,6 +4857,7 @@ uiInitFrame:RegisterEvent("ADDON_LOADED")
 uiInitFrame:RegisterEvent("PLAYER_LOGIN")
 
 uiInitFrame:SetScript("OnEvent", function(self, event, arg1)
+    if not addon:IsRuntimeReady() then return end
     if event == "ADDON_LOADED" then
         if arg1 == ADDON_NAME then
             addon:CreateInterfaceOptions()

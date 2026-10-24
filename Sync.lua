@@ -297,3 +297,5 @@ function addon:PrintPerformance()
     print(string.format("[PGS] Sent: %d; received: %d; bag scans: %d; view refreshes: %d; queued: %d",
         p.sent, p.received, p.bagScans, p.viewRefreshes, #queue))
 end
+
+addon.syncLoaded = true

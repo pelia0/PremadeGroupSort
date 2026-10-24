@@ -249,6 +249,7 @@ L["OPT_MINIMAP_ICON_DESC"] = "Displays a convenient circular button near the min
 L["BL_CHAT_HINT"] = "Tip: Right-click player name in chat or unit frame -> 'Add to BL (PGS)'"
 
 -- Account keystone log (all locales fall back to English).
+L["RESTART_REQUIRED"] = "PGS modules did not load. Completely exit and restart World of Warcraft after updating; /reload is not enough for newly added files."
 L["KEYS_HEADER"] = "Your characters' last known keystones:"
 L["KEYS_NONE"] = "No keystone"
 L["KEYS_UNCONFIRMED"] = "Inventory not confirmed"

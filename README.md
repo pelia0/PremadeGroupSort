@@ -4,7 +4,11 @@ A customized World of Warcraft **Legion 7.3.5** addon for Mythic+ group search, 
 
 ## Install
 
-Place this repository in `World of Warcraft/Interface/AddOns/PremadeGroupSort`, then restart the client or reload the UI. The folder must directly contain `PremadeGroupSort.toc`, `Core.lua`, and the other addon files.
+Place this repository in `World of Warcraft/Interface/AddOns/PremadeGroupSort`, then completely exit and restart the client. The folder must directly contain `PremadeGroupSort.toc`, `Core.lua`, and the other addon files.
+
+**Updating from 1.3.x to 1.4.x requires a full client restart.** Legion can retain its startup file cache across `/reload` and reject newly added `Sync.lua` and `CharacterKeys.lua`. This prevents the feature modules from loading even though the files exist on disk. A UI reload is sufficient for edits to files the client already knows, but is not sufficient for this update.
+
+Version 1.4.1 registers both `/keys` and `/pgs keys` in the established core file and checks that both feature modules completed loading. If either module is unavailable, the commands display restart instructions instead of raising a Lua error or leaving Enter blocked. Incomplete loading also suspends dependent event and UI initialization, preventing repeated errors. After a full restart both commands provide the normal character list.
 
 This is a standalone repository. The surrounding AddOns collection is not required. Existing `PremadeGroupSortDB` settings are retained.
 
@@ -59,7 +63,7 @@ The suite executes the shipped Lua in Lua 5.1 with controlled WoW API, frame, tr
 
 ## In-game acceptance
 
-1. Reload, run `/keys` on two characters, reload again, and verify both records, levels, timestamps, and current-character ordering.
+1. Fully restart the client after installing/updating. Run `/keys` on two characters, reload, and verify both records, levels, timestamps, and current-character ordering.
 2. Run a key with two or more updated addon users. Compare `/pgs perf` before and after loot, trash fights, and the final boss. Verify that no full list transfer occurs during the run.
 3. Check key changes, legacy peers, joining/leaving a group, and manual blacklist add/remove. Open the hidden settings afterward and verify that the displayed data is current.
 4. Check that group-search filtering, group creation, blacklist invite protection, and existing settings still behave as expected.

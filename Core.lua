@@ -49,6 +49,14 @@ addon.guildWhitelist = {}
 local metaCache = {}
 local metaPool = {}
 
+function addon:IsRuntimeReady()
+    return self.syncLoaded == true and self.characterKeysLoaded == true
+end
+
+function addon:ReportIncompleteLoad()
+    print("|cffffaa00[PGS]|r " .. L["RESTART_REQUIRED"])
+end
+
 ------------------------------------------------------------------------
 -- Anime Audio & Voice System
 ------------------------------------------------------------------------
@@ -746,6 +754,8 @@ eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_LEAVING_WORLD")
 
 eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
+    -- Legion can retain its startup file cache across /reload after an addon update.
+    if event ~= "ADDON_LOADED" and not addon:IsRuntimeReady() then return end
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         RegisterAddonPrefix()
         if PremadeGroupSortDB == nil then
@@ -773,7 +783,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
             PremadeGroupSortDB.soundVolumeBoost = 100
         end
         addon.db = PremadeGroupSortDB
-        addon:InitializeCharacterKeys()
+        if addon:IsRuntimeReady() then
+            addon:InitializeCharacterKeys()
+        elseif not addon.restartNoticeShown then
+            addon.restartNoticeShown = true
+            addon:ReportIncompleteLoad()
+        end
         if addon.db.selectedDungeons == nil then
             addon.db.selectedDungeons = {}
         end
@@ -1095,7 +1110,14 @@ end)
 -- Slash Commands
 SLASH_PREMADEGROUPSORT1 = "/pgs"
 SLASH_PREMADEGROUPSORT2 = "/premadegroupsort"
+-- Register the public alias in the established file even if new modules cannot load yet.
+SLASH_PGSKEYS1 = "/keys"
+SlashCmdList["PGSKEYS"] = function()
+    if not addon:IsRuntimeReady() then addon:ReportIncompleteLoad(); return end
+    addon:ShowCharacterKeys()
+end
 SlashCmdList["PREMADEGROUPSORT"] = function(msg)
+    if not addon:IsRuntimeReady() then addon:ReportIncompleteLoad(); return end
     local cmd, arg1, arg2 = string.match(msg or "", "^%s*(%S*)%s*(%S*)%s*(.-)%s*$")
     cmd = safeLower(cmd or "")
     if cmd == "keys" then
