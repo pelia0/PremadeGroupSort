@@ -1,5 +1,7 @@
 # Version 1.4.0 validation
 
+Implementation commit `7588f9a7bf2f9a1e08c2cc2a2b97f5a259c76610` and the original baseline were pushed to the standalone repository. `git ls-remote origin refs/heads/main` independently matched the implementation SHA after push. This document and the completed execution checklist are recorded in a subsequent documentation commit.
+
 ## Automated verification
 
 The complete suite passes: **44 tests**, running shipped addon code in `lupa.lua51.LuaRuntime` (Lua 5.1) with pinned `lupa==2.8` on Python 3.12. Every TOC-loaded Lua file compiles and resolves to an existing file. `git diff --check` passes.
